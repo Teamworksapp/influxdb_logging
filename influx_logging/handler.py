@@ -11,6 +11,7 @@ import socket
 import math
 import threading
 import time
+import itertools
 from influxdb import InfluxDBClient
 from io import StringIO
 
@@ -68,6 +69,7 @@ class InfluxHandler(logging.Handler):
         localname=None,
         measurement=None, 
         level_names=False,
+        backpop=True,
         **client_kwargs
     ):
         self.debugging_fields = debugging_fields
@@ -76,6 +78,7 @@ class InfluxHandler(logging.Handler):
         self.measurement = measurement
         self.indexed_keys = {'level','short_message'}
         self.client = InfluxDBClient(database=database, **client_kwargs)
+        self.backpop = backpop
         
         if database not in {x['name'] for x in self.client.get_list_database()}:
             self.client.create_database(database)
@@ -94,9 +97,9 @@ class InfluxHandler(logging.Handler):
 
         Send the record to the Web server as line protocol
         """
-        self.client.write_points([self.get_point(record)])
+        self.client.write_points(self.get_point(record))
     
-    def get_point(self, record):
+    def get_points(self, record):
         fields = {
             'host': self.localname,
             'short_message': record.getMessage(),
@@ -120,12 +123,39 @@ class InfluxHandler(logging.Handler):
         if self.extra_fields:
             fields = add_extra_fields(fields, record)
 
-        return {
-            "measurement": self.measurement or record.name.replace(".", ":") or 'root',
-            "tags": {k: fields[k] for k in sorted(fields.keys()) if k in self.indexed_keys},
-            "fields": {k: fields[k] for k in sorted(fields.keys())},
-            "time": int(record.created * 10**9)  # nanoseconds
-        }
+        if self.measurement:
+            return [{
+                "measurement": self.measurement,
+                "tags": {k: fields[k] for k in sorted(fields.keys()) if k in self.indexed_keys},
+                "fields": {k: fields[k] for k in sorted(fields.keys())},
+                "time": int(record.created * 10**9)  # nanoseconds
+            }]
+        elif not self.backpop:
+            return [{
+                "measurement": record.name.replace(".", ":") or 'root',
+                "tags": {k: fields[k] for k in sorted(fields.keys()) if k in self.indexed_keys},
+                "fields": {k: fields[k] for k in sorted(fields.keys())},
+                "time": int(record.created * 10**9)  # nanoseconds
+            }] 
+        else:
+            ret = []
+            names = record.name.split('.')
+            rname = names[0] or 'root'
+            ret.append({
+                "measurement": rname,
+                "tags": {k: fields[k] for k in sorted(fields.keys()) if k in self.indexed_keys},
+                "fields": {k: fields[k] for k in sorted(fields.keys())},
+                "time": int(record.created * 10**9)  # nanoseconds
+            })
+            for sub in names[1:]:
+                rname = "{rname}:{sub}".format(rname, sub)
+                ret.append({
+                    "measurement": rname,
+                    "tags": {k: fields[k] for k in sorted(fields.keys()) if k in self.indexed_keys},
+                    "fields": {k: fields[k] for k in sorted(fields.keys())},
+                    "time": int(record.created * 10**9)  # nanoseconds
+                })
+            return ret
 
 
 class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
@@ -154,6 +184,7 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
         level_names=False,
         capacity=64,
         flush_interval=5,  
+        backpop=True,
         **client_kwargs
     ):
         self.debugging_fields = debugging_fields
@@ -177,6 +208,7 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
             localname=localname,
             measurement=measurement, 
             level_names=level_names,
+            backpop=backpop,
             **client_kwargs
         )
         BufferingHandler.__init__(self, capacity)
@@ -195,7 +227,7 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
         self.acquire()
         try:
             if len(self.buffer):
-                self.client.write_points([self.get_point(record) for record in self.buffer])
+                self.client.write_points(itertools.chain(self.get_point(record) for record in self.buffer))
                 self.buffer = []
         finally:
             self.release()

@@ -57,6 +57,7 @@ res = influx_handler.client.query(
     record.name will be passed as `logger` parameter.
 * **level_names**: Allows the use of string error level names instead
     of numerical values. Defaults to `False`
+* **backpop**: Default `True`. Add a record for each item in the hierarchy of loggers. 
 * **\*\*client_kwargs**: Pass these args to the `InfluxDBClient` constructor
   
 ## class `BufferingInfluxHandler`
@@ -74,4 +75,5 @@ res = influx_handler.client.query(
     of numerical values. Defaults to `False`
 * **capacity**: The number of points to buffer before sending to InfluxDB.
 * **flush_interval**: Interval in seconds between flushes, maximum. Defaults to 5 seconds
+* **backpop**: Default `True`. Add a record for each item in the hierarchy of loggers. 
 * **\*\*client_kwargs**: Pass these args to the `InfluxDBClient` constructor
