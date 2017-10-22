@@ -148,7 +148,7 @@ class InfluxHandler(logging.Handler):
                 "time": int(record.created * 10**9)  # nanoseconds
             })
             for sub in names[1:]:
-                rname = "{rname}:{sub}".format(rname, sub)
+                rname = "{rname}:{sub}".format(rname=rname, sub=sub)
                 ret.append({
                     "measurement": rname,
                     "tags": {k: fields[k] for k in sorted(fields.keys()) if k in self.indexed_keys},
