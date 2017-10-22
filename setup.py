@@ -9,7 +9,7 @@ setup(
     author_email="jheard@teamworks.com",
     license = "MIT",
     packages = ['influx_logging','tests'],
-    version = "0.1.2",
+    version = "0.1.3",
 
     # custom PyPI classifier for pytest plugins
     classifiers=[

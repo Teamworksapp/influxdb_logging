@@ -99,7 +99,7 @@ class InfluxHandler(logging.Handler):
         """
         self.client.write_points(self.get_point(record))
     
-    def get_points(self, record):
+    def get_point(self, record):
         fields = {
             'host': self.localname,
             'short_message': record.getMessage(),
