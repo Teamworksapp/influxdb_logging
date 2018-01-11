@@ -227,7 +227,7 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
         self.acquire()
         try:
             if len(self.buffer):
-                self.client.write_points(itertools.chain(self.get_point(record) for record in self.buffer))
+                self.client.write_points(itertools.chain(itertools.chain(self.get_point(record) for record in self.buffer)))
                 self.buffer = []
         finally:
             self.release()
