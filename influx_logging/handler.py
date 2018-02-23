@@ -22,7 +22,7 @@ if PY3:
     data, text = bytes, str
 else:
     data, text = str, unicode
-    
+
 SYSLOG_LEVELS = {
     logging.CRITICAL: 2,
     logging.ERROR: 3,
@@ -47,7 +47,7 @@ SKIP_LIST = {
 
 class InfluxHandler(logging.Handler):
     """InfluxDB Log handler
-    
+
     :param database: The database you want log entries to go into.
     :param indexed_keys: The names of keys to be treated as keys (as opposed to fields) in influxdb.
     :param debugging_fields: Send debug fields if true (the default).
@@ -61,15 +61,16 @@ class InfluxHandler(logging.Handler):
     :param client_kwargs: Pass these args to the InfluxDBClient constructor
     """
 
-    def __init__(self, 
+    def __init__(self,
         database,
-        indexed_keys=None, 
-        debugging_fields=True, 
-        extra_fields=True, 
+        indexed_keys=None,
+        debugging_fields=True,
+        extra_fields=True,
         localname=None,
-        measurement=None, 
+        measurement=None,
         level_names=False,
         backpop=True,
+        lazy_init=False,
         **client_kwargs
     ):
         self.debugging_fields = debugging_fields
@@ -79,18 +80,19 @@ class InfluxHandler(logging.Handler):
         self.indexed_keys = {'level','short_message'}
         self.client = InfluxDBClient(database=database, **client_kwargs)
         self.backpop = backpop
-        
-        if database not in {x['name'] for x in self.client.get_list_database()}:
-            self.client.create_database(database)
-        
+
+        if lazy_init is False:
+            if database not in {x['name'] for x in self.client.get_list_database()}:
+                self.client.create_database(database)
+
         if indexed_keys is not None:
             self.indexed_keys += set(indexed_keys)
-        
+
         logging.Handler.__init__(self)
-        
+
     def set_retention_policy(self, *args, **kwargs):
         return self.client.set_retention_policy(*args, **kwargs)
-        
+
     def emit(self, record):
         """
         Emit a record.
@@ -98,7 +100,7 @@ class InfluxHandler(logging.Handler):
         Send the record to the Web server as line protocol
         """
         self.client.write_points(self.get_point(record))
-    
+
     def get_point(self, record):
         fields = {
             'host': self.localname,
@@ -136,7 +138,7 @@ class InfluxHandler(logging.Handler):
                 "tags": {k: fields[k] for k in sorted(fields.keys()) if k in self.indexed_keys},
                 "fields": {k: fields[k] for k in sorted(fields.keys())},
                 "time": int(record.created * 10**9)  # nanoseconds
-            }] 
+            }]
         else:
             ret = []
             names = record.name.split('.')
@@ -175,15 +177,15 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
     :param client_kwargs: Pass these args to the InfluxDBClient constructor
     """
 
-    def __init__(self, 
-        indexed_keys=None, 
-        debugging_fields=True, 
-        extra_fields=True, 
+    def __init__(self,
+        indexed_keys=None,
+        debugging_fields=True,
+        extra_fields=True,
         localname=None,
-        measurement=None, 
+        measurement=None,
         level_names=False,
         capacity=64,
-        flush_interval=5,  
+        flush_interval=5,
         backpop=True,
         **client_kwargs
     ):
@@ -197,32 +199,32 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
         self.flush_interval=flush_interval
         self._thread = None if flush_interval is None else threading.Thread(
             target=self._flush_thread, name="BufferingInfluxHandler", daemon=True)
-        
+
         if indexed_keys is not None:
             self.indexed_keys += set(indexed_keys)
-        
-        InfluxHandler.__init__(self, 
-            indexed_keys=None, 
-            debugging_fields=debugging_fields, 
-            extra_fields=extra_fields, 
+
+        InfluxHandler.__init__(self,
+            indexed_keys=None,
+            debugging_fields=debugging_fields,
+            extra_fields=extra_fields,
             localname=localname,
-            measurement=measurement, 
+            measurement=measurement,
             level_names=level_names,
             backpop=backpop,
             **client_kwargs
         )
         BufferingHandler.__init__(self, capacity)
         self._thread.start()
-        
-        
+
+
     def emit(self, record):
         BufferingHandler.emit(self, record)
-        
+
     def _flush_thread(self):
         while True:
             time.sleep(self.flush_interval)
             self.flush()
-        
+
     def flush(self):
         self.acquire()
         try:
@@ -231,7 +233,7 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
                 self.buffer = []
         finally:
             self.release()
-        
+
 
 def get_full_message(exc_info, message):
     return json.dumps(traceback.format_exception(*exc_info)) if exc_info else json.dumps([message])
