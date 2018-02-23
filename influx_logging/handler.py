@@ -1,19 +1,13 @@
-import datetime
-import sys
-import logging
-from logging.handlers import BufferingHandler
+import itertools
 import json
-import zlib
-import traceback
-import struct
-import random
-import socket
-import math
+import logging
+import sys
 import threading
 import time
-import itertools
+import traceback
+from logging.handlers import BufferingHandler
+
 from influxdb import InfluxDBClient
-from io import StringIO
 
 PY3 = sys.version_info[0] == 3
 WAN_CHUNK, LAN_CHUNK = 1420, 8154
@@ -31,7 +25,6 @@ SYSLOG_LEVELS = {
     logging.DEBUG: 7,
 }
 
-
 # skip_list is used to filter additional fields in a log message.
 # It contains all attributes listed in
 # http://docs.python.org/library/logging.html#logrecord-attributes
@@ -39,7 +32,7 @@ SYSLOG_LEVELS = {
 # and id, which is prohibited by the GELF format.
 
 SKIP_LIST = {
-    'args', 'asctime', 'created', 'exc_info',  'exc_text', 'filename',
+    'args', 'asctime', 'created', 'exc_info', 'exc_text', 'filename',
     'funcName', 'id', 'levelname', 'levelno', 'lineno', 'module',
     'msecs', 'message', 'msg', 'name', 'pathname', 'process',
     'processName', 'relativeCreated', 'thread', 'threadName'}
@@ -63,24 +56,26 @@ class InfluxHandler(logging.Handler):
     """
 
     def __init__(self,
-        database,
-        indexed_keys=None,
-        debugging_fields=True,
-        extra_fields=True,
-        localname=None,
-        measurement=None,
-        level_names=False,
-        backpop=True,
-        lazy_init=False,
-        **client_kwargs
-    ):
+                 database,
+                 retention_policy=None,
+                 indexed_keys=None,
+                 debugging_fields=True,
+                 extra_fields=True,
+                 localname=None,
+                 measurement=None,
+                 level_names=False,
+                 backpop=True,
+                 lazy_init=False,
+                 **client_kwargs
+                 ):
         self.debugging_fields = debugging_fields
         self.extra_fields = extra_fields
         self.localname = localname
         self.measurement = measurement
-        self.indexed_keys = {'level','short_message'}
+        self.indexed_keys = {'level', 'short_message'}
         self.client = InfluxDBClient(database=database, **client_kwargs)
         self.backpop = backpop
+        self.retention_policy = retention_policy
 
         if lazy_init is False:
             if database not in {x['name'] for x in self.client.get_list_database()}:
@@ -91,16 +86,13 @@ class InfluxHandler(logging.Handler):
 
         logging.Handler.__init__(self)
 
-    def set_retention_policy(self, *args, **kwargs):
-        return self.client.set_retention_policy(*args, **kwargs)
-
     def emit(self, record):
         """
         Emit a record.
 
         Send the record to the Web server as line protocol
         """
-        self.client.write_points(self.get_point(record))
+        self.client.write_points(self.get_point(record), retention_policy=self.retention_policy)
 
     def get_point(self, record):
         fields = {
@@ -131,14 +123,14 @@ class InfluxHandler(logging.Handler):
                 "measurement": self.measurement,
                 "tags": {k: fields[k] for k in sorted(fields.keys()) if k in self.indexed_keys},
                 "fields": {k: fields[k] for k in sorted(fields.keys())},
-                "time": int(record.created * 10**9)  # nanoseconds
+                "time": int(record.created * 10 ** 9)  # nanoseconds
             }]
         elif not self.backpop:
             return [{
                 "measurement": record.name.replace(".", ":") or 'root',
                 "tags": {k: fields[k] for k in sorted(fields.keys()) if k in self.indexed_keys},
                 "fields": {k: fields[k] for k in sorted(fields.keys())},
-                "time": int(record.created * 10**9)  # nanoseconds
+                "time": int(record.created * 10 ** 9)  # nanoseconds
             }]
         else:
             ret = []
@@ -148,7 +140,7 @@ class InfluxHandler(logging.Handler):
                 "measurement": rname,
                 "tags": {k: fields[k] for k in sorted(fields.keys()) if k in self.indexed_keys},
                 "fields": {k: fields[k] for k in sorted(fields.keys())},
-                "time": int(record.created * 10**9)  # nanoseconds
+                "time": int(record.created * 10 ** 9)  # nanoseconds
             })
             for sub in names[1:]:
                 rname = "{rname}:{sub}".format(rname=rname, sub=sub)
@@ -156,7 +148,7 @@ class InfluxHandler(logging.Handler):
                     "measurement": rname,
                     "tags": {k: fields[k] for k in sorted(fields.keys()) if k in self.indexed_keys},
                     "fields": {k: fields[k] for k in sorted(fields.keys())},
-                    "time": int(record.created * 10**9)  # nanoseconds
+                    "time": int(record.created * 10 ** 9)  # nanoseconds
                 })
             return ret
 
@@ -180,46 +172,41 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
     """
 
     def __init__(self,
-        indexed_keys=None,
-        debugging_fields=True,
-        extra_fields=True,
-        localname=None,
-        measurement=None,
-        level_names=False,
-        capacity=64,
-        flush_interval=5,
-        backpop=True,
-        lazy_init=False,
-        **client_kwargs
-    ):
-        self.debugging_fields = debugging_fields
-        self.extra_fields = extra_fields
-        self.localname = localname
-        self.measurement = measurement
-        self.level_names = level_names
-        self.indexed_keys = {'level','short_message'}
-        self.client = InfluxDBClient(**client_kwargs)
-        self.flush_interval=flush_interval
-        self._thread = None if flush_interval is None else threading.Thread(
-            target=self._flush_thread, name="BufferingInfluxHandler", daemon=True)
-
-        if indexed_keys is not None:
-            self.indexed_keys += set(indexed_keys)
+                 database,
+                 retention_policy=None,
+                 indexed_keys=None,
+                 debugging_fields=True,
+                 extra_fields=True,
+                 localname=None,
+                 measurement=None,
+                 level_names=False,
+                 capacity=64,
+                 flush_interval=5,
+                 backpop=True,
+                 lazy_init=False,
+                 **client_kwargs
+                 ):
+        self.flush_interval = flush_interval
 
         InfluxHandler.__init__(self,
-            indexed_keys=None,
-            debugging_fields=debugging_fields,
-            extra_fields=extra_fields,
-            localname=localname,
-            measurement=measurement,
-            level_names=level_names,
-            backpop=backpop,
-            lazy_init=lazy_init,
-            **client_kwargs
-        )
-        BufferingHandler.__init__(self, capacity)
-        self._thread.start()
+                               database=database,
+                               retention_policy=retention_policy,
+                               indexed_keys=None,
+                               debugging_fields=debugging_fields,
+                               extra_fields=extra_fields,
+                               localname=localname,
+                               measurement=measurement,
+                               level_names=level_names,
+                               backpop=backpop,
+                               lazy_init=lazy_init,
+                               **client_kwargs
+                               )
 
+        BufferingHandler.__init__(self, capacity)
+
+        self._thread = None if flush_interval is None else threading.Thread(
+            target=self._flush_thread, name="BufferingInfluxHandler", daemon=True)
+        self._thread.start()
 
     def emit(self, record):
         BufferingHandler.emit(self, record)
@@ -233,7 +220,9 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
         self.acquire()
         try:
             if len(self.buffer):
-                self.client.write_points(itertools.chain(itertools.chain(self.get_point(record) for record in self.buffer)))
+                self.client.write_points(
+                    itertools.chain(itertools.chain(self.get_point(record) for record in self.buffer)),
+                    retention_policy=self.retention_policy)
                 self.buffer = []
         finally:
             self.release()
