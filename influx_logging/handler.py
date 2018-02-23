@@ -58,6 +58,7 @@ class InfluxHandler(logging.Handler):
         record.name will be passed as `logger` parameter.
     :param level_names: Allows the use of string error level names instead
         of numerical values. Defaults to False
+    :param lazy_init: Enable lazy initialization. Defaults to False.
     :param client_kwargs: Pass these args to the InfluxDBClient constructor
     """
 
@@ -174,6 +175,7 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
         of numerical values. Defaults to False
     :param capacity: The number of points to buffer before sending to InfluxDB.
     :param flush_interval: Interval in seconds between flushes, maximum. Defaults to 5 seconds
+    :param lazy_init: Enable lazy initialization. Defaults to False.
     :param client_kwargs: Pass these args to the InfluxDBClient constructor
     """
 
@@ -187,6 +189,7 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
         capacity=64,
         flush_interval=5,
         backpop=True,
+        lazy_init=False,
         **client_kwargs
     ):
         self.debugging_fields = debugging_fields
@@ -211,6 +214,7 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
             measurement=measurement,
             level_names=level_names,
             backpop=backpop,
+            lazy_init=lazy_init,
             **client_kwargs
         )
         BufferingHandler.__init__(self, capacity)
