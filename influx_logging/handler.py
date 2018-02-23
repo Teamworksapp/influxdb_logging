@@ -57,6 +57,8 @@ class InfluxHandler(logging.Handler):
     :param extra_fields: Add extra fields if found. Defaults to True.
     :param extra_tags: Add extra tags if found. Defaults to True.
     :param include_stacktrace: Add stacktraces. Defaults to True.
+    :param exclude_tags: Exclude list of tag names. Defaults to [].
+    :param exclude_fields: Exclude list of field names. Defaults to [].
     :param **influxdb_opts: InfluxDB client options
     """
 
@@ -68,31 +70,36 @@ class InfluxHandler(logging.Handler):
                  lazy_init: bool = False,
                  include_tags: dict = {},
                  include_fields: dict = {},
+                 exclude_tags: list = [],
+                 exclude_fields: list = [],
                  extra_tags: bool = True,
                  extra_fields: bool = True,
                  include_stacktrace: bool = True,
                  **influxdb_opts
                  ):
-        self.measurement = measurement
-        self.client = InfluxDBClient(database=database, **influxdb_opts)
-        self.backpop = backpop
-        self.retention_policy = retention_policy
+        self._measurement = measurement
+        self._client = InfluxDBClient(database=database, **influxdb_opts)
+        self._backpop = backpop
+        self._retention_policy = retention_policy
 
         # extend tags to include
-        self.include_tags = DEFAULT_TAGS
-        self.include_tags.update(include_tags)
+        self._include_tags = DEFAULT_TAGS
+        self._include_tags.update(include_tags)
 
         # extend fields to include
-        self.include_fields = DEFAULT_FIELDS
-        self.include_fields.update(include_fields)
+        self._include_fields = DEFAULT_FIELDS
+        self._include_fields.update(include_fields)
 
-        self.extra_tags = extra_tags
-        self.extra_fields = extra_fields
-        self.include_stacktrace = include_stacktrace
+        self._extra_tags = extra_tags
+        self._extra_fields = extra_fields
+        self._include_stacktrace = include_stacktrace
+
+        self._exclude_tags = exclude_tags
+        self._exclude_fields = exclude_fields
 
         if lazy_init is False:
-            if database not in {x['name'] for x in self.client.get_list_database()}:
-                self.client.create_database(database)
+            if database not in {x['name'] for x in self._client.get_list_database()}:
+                self._client.create_database(database)
 
         logging.Handler.__init__(self)
 
@@ -102,25 +109,27 @@ class InfluxHandler(logging.Handler):
 
         Send the record to the Web server as line protocol
         """
-        self.client.write_points(self.get_point(record), retention_policy=self.retention_policy)
+        self._client.write_points(self._get_point(record), retention_policy=self._retention_policy)
 
-    def convert_to_point(self, key, value, fields={}, tags={}):
+    def _convert_to_point(self, key, value, fields={}, tags={}):
         if value is None:
             return
         elif isinstance(value, dict):
             for k in value.items():
                 if key:
-                    self.convert_to_point(key + '.' + k, value[k], fields, tags)
+                    self._convert_to_point(key + '.' + k, value[k], fields, tags)
                 else:
-                    self.convert_to_point(k, value[k], fields, tags)
+                    self._convert_to_point(k, value[k], fields, tags)
         elif isinstance(value, list):
-            self.convert_to_point(key, ' '.join(value), fields, tags)
+            self._convert_to_point(key, ' '.join(value), fields, tags)
         else:
-            if key in self.include_tags:
-                tags[self.include_tags.get(key)] = value
-            elif key in self.include_fields:
-                fields[self.include_fields.get(key)] = value
-            elif key == STACKTRACE_ATTRIBUTE and self.include_stacktrace:
+            if key in self._include_tags:
+                if key not in self._exclude_tags:
+                    tags[self._include_tags.get(key)] = value
+            elif key in self._include_fields:
+                if key not in self._exclude_fields:
+                    fields[self._include_fields.get(key)] = value
+            elif key == STACKTRACE_ATTRIBUTE and self._include_stacktrace:
                 if isinstance(value, tuple):
                     # exc_info is defined as a tuple
                     tags['thrown.type'] = value[0].__name__
@@ -130,10 +139,10 @@ class InfluxHandler(logging.Handler):
                 return
             else:
                 if isinstance(value, int) or isinstance(value, float) or isinstance(value, bool):
-                    if self.extra_fields:
+                    if self._extra_fields and key not in self._exclude_fields:
                         fields[key] = value
                 else:
-                    if self.extra_tags:
+                    if self._extra_tags and key not in self._exclude_tags:
                         tags[key] = value
 
     def get_point(self, record):
@@ -145,16 +154,16 @@ class InfluxHandler(logging.Handler):
             if record_name.startswith('_'):
                 continue
 
-            self.convert_to_point(record_name, record_value, fields, tags)
+            self._convert_to_point(record_name, record_value, fields, tags)
 
-        if self.measurement:
+        if self._measurement:
             return [{
-                "measurement": self.measurement,
+                "measurement": self._measurement,
                 "tags": tags,
                 "fields": fields,
                 "time": int(record.created * 10 ** 9)  # nanoseconds
             }]
-        elif not self.backpop:
+        elif not self._backpop:
             return [{
                 "measurement": record.name.replace(".", ":") or 'root',
                 "tags": tags,
@@ -195,7 +204,7 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
                  flush_interval: int = 5,
                  **kwargs
                  ):
-        self.flush_interval = flush_interval
+        self._flush_interval = flush_interval
 
         InfluxHandler.__init__(self, **kwargs)
         BufferingHandler.__init__(self, capacity)
@@ -209,7 +218,7 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
 
     def _flush_thread(self):
         while True:
-            time.sleep(self.flush_interval)
+            time.sleep(self._flush_interval)
             self.flush()
 
     def flush(self):
@@ -221,7 +230,7 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
                 for record in self.buffer:
                     points.extend(self.get_point(record))
 
-                self.client.write_points(points, retention_policy=self.retention_policy)
+                self._client.write_points(points, retention_policy=self._retention_policy)
 
                 # clear the buffer
                 self.buffer.clear()
