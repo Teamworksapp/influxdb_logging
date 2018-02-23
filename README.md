@@ -58,6 +58,7 @@ res = influx_handler.client.query(
 * **level_names**: Allows the use of string error level names instead
     of numerical values. Defaults to `False`
 * **backpop**: Default `True`. Add a record for each item in the hierarchy of loggers. 
+* **lazy_init**: Default `False`. Lazy initialization. Defaults to `False`.
 * **\*\*client_kwargs**: Pass these args to the `InfluxDBClient` constructor
   
 ## class `BufferingInfluxHandler`
