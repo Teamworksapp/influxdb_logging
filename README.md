@@ -52,8 +52,10 @@ res = influx_handler.client.query(
 | database | The database you want log entries to go into. |
 | measurement | Replace measurement with specified value. If not specified, record.name will be passed as `logger` parameter. |
 | lazy_init | Enable lazy initialization. Defaults to False. |
-| include_field s| Include additional fields. Defaults to {}. |
-| include_tags | Include additional tags. Defaults to {}. |
+| include_fields | Include additional fields ({'record_name': 'field_name'}). Defaults to {}. |
+| exclude_fields | Exclude list of field names. Defaults to []. |
+| include_tags | Include additional tags ({'record_name': 'tag_name'}). Defaults to {}. |
+| exclude_tags | Exclude list of tag names. Defaults to []. |
 | extra_fields | Add extra fields if found. Defaults to True. |
 | extra_tags | Add extra tags if found. Defaults to True. |
 | include_stacktrace | Add stacktraces. Defaults to True. |
@@ -66,15 +68,17 @@ res = influx_handler.client.query(
 
 |Name | Description |
 |-----|-------------|
+| capacity | The number of points to buffer before sending to InfluxDB. |
+| flush_interval | Interval in seconds between flushes, maximum. Defaults to 5 seconds |
 | database | The database you want log entries to go into. |
 | measurement | Replace measurement with specified value. If not specified, record.name will be passed as `logger` parameter. |
 | lazy_init | Enable lazy initialization. Defaults to False. |
-| include_field s| Include additional fields. Defaults to {}. |
-| include_tags | Include additional tags. Defaults to {}. |
+| include_fields | Include additional fields ({'record_name': 'field_name'}). Defaults to {}. |
+| exclude_fields | Exclude list of field names. Defaults to []. |
+| include_tags | Include additional tags ({'record_name': 'tag_name'}). Defaults to {}. |
+| exclude_tags | Exclude list of tag names. Defaults to []. |
 | extra_fields | Add extra fields if found. Defaults to True. |
 | extra_tags | Add extra tags if found. Defaults to True. |
 | include_stacktrace | Add stacktraces. Defaults to True. |
-| capacity | The number of points to buffer before sending to InfluxDB. |
-| flush_interval | Interval in seconds between flushes, maximum. Defaults to 5 seconds |
 | backpop | Default `True`. Add a record for each item in the hierarchy of loggers. |
 | **influxdb_opts | InfluxDB client options |
