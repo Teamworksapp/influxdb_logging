@@ -191,7 +191,7 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
         InfluxHandler.__init__(self,
                                database=database,
                                retention_policy=retention_policy,
-                               indexed_keys=None,
+                               indexed_keys=indexed_keys,
                                debugging_fields=debugging_fields,
                                extra_fields=extra_fields,
                                localname=localname,
@@ -220,10 +220,15 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
         self.acquire()
         try:
             if len(self.buffer):
-                self.client.write_points(
-                    itertools.chain(itertools.chain(self.get_point(record) for record in self.buffer)),
-                    retention_policy=self.retention_policy)
-                self.buffer = []
+                # process all the buffered records
+                points = []
+                for record in self.buffer:
+                    points.extend(self.get_point(record))
+
+                self.client.write_points(points, retention_policy=self.retention_policy)
+
+                # clear the buffer
+                self.buffer.clear()
         finally:
             self.release()
 

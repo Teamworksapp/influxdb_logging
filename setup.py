@@ -7,9 +7,9 @@ setup(
     url="https://github.com/teamworksapp/influx_logging",
     author="Jefferson Heard",
     author_email="jheard@teamworks.com",
-    license = "MIT",
-    packages = ['influx_logging','tests'],
-    version = "0.1.4",
+    license="MIT",
+    packages=['influx_logging', 'tests'],
+    version="0.1.4",
 
     # custom PyPI classifier for pytest plugins
     classifiers=[
@@ -19,6 +19,6 @@ setup(
         "Topic :: System :: Logging"
     ],
 
-    install_requires=["influxdb"],
+    install_requires=["influxdb==5.0.0"],
     python_requires='>=3'
 )
