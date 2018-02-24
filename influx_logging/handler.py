@@ -133,7 +133,7 @@ class InfluxHandler(logging.Handler):
                 if isinstance(value, tuple):
                     # exc_info is defined as a tuple
                     tags['thrown.type'] = value[0].__name__
-                    fields['thrown.message'] = value[1].strerror
+                    fields['thrown.message'] = str(value[1])
                     fields['thrown.stackTrace'] = ''.join(traceback.format_exception(*value))
             elif key in SKIP_ATTRIBUTES:
                 return
