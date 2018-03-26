@@ -47,33 +47,38 @@ res = influx_handler.client.query(
 
 ##### Parameters
 
-* **database**: The database you want log entries to go into.
-* **indexed_keys**: The names of keys to be treated as keys (as opposed to fields) in influxdb.
-* **debugging_fields**: Send debug fields if true (the default).
-* **extra_fields**: Send extra fields on the log record to graylog
-    if true (the default).
-* **localname**: Use specified hostname as source host.
-* **measurement**: Replace measurement with specified value. If not specified,
-    record.name will be passed as `logger` parameter.
-* **level_names**: Allows the use of string error level names instead
-    of numerical values. Defaults to `False`
-* **backpop**: Default `True`. Add a record for each item in the hierarchy of loggers. 
-* **\*\*client_kwargs**: Pass these args to the `InfluxDBClient` constructor
+|Name | Description |
+|-----|-------------|
+| database | The database you want log entries to go into. |
+| measurement | Replace measurement with specified value. If not specified, record.name will be passed as `logger` parameter. |
+| lazy_init | Enable lazy initialization. Defaults to False. |
+| include_fields | Include additional fields ({'record_name': 'field_name'}). Defaults to {}. |
+| exclude_fields | Exclude list of field names. Defaults to []. |
+| include_tags | Include additional tags ({'record_name': 'tag_name'}). Defaults to {}. |
+| exclude_tags | Exclude list of tag names. Defaults to []. |
+| extra_fields | Add extra fields if found. Defaults to True. |
+| extra_tags | Add extra tags if found. Defaults to True. |
+| include_stacktrace | Add stacktraces. Defaults to True. |
+| backpop | Default `True`. Add a record for each item in the hierarchy of loggers. |
+| **influxdb_opts | InfluxDB client options |
   
 ## class `BufferingInfluxHandler`
 
 ##### Parameters
 
-* **indexed_keys**: The names of keys to be treated as keys (as opposed to fields) in influxdb.
-* **debugging_fields**: Send debug fields if true (the default).
-* **extra_fields**: Send extra fields on the log record to graylog
-    if true (the default).
-* **localname**: Use specified hostname as source host.
-* **measurement**: Replace measurement with specified value. If not specified,
-    `record.name` will be passed as `logger` parameter.
-* **level_names**: Allows the use of string error level names instead
-    of numerical values. Defaults to `False`
-* **capacity**: The number of points to buffer before sending to InfluxDB.
-* **flush_interval**: Interval in seconds between flushes, maximum. Defaults to 5 seconds
-* **backpop**: Default `True`. Add a record for each item in the hierarchy of loggers. 
-* **\*\*client_kwargs**: Pass these args to the `InfluxDBClient` constructor
+|Name | Description |
+|-----|-------------|
+| capacity | The number of points to buffer before sending to InfluxDB. |
+| flush_interval | Interval in seconds between flushes, maximum. Defaults to 5 seconds |
+| database | The database you want log entries to go into. |
+| measurement | Replace measurement with specified value. If not specified, record.name will be passed as `logger` parameter. |
+| lazy_init | Enable lazy initialization. Defaults to False. |
+| include_fields | Include additional fields ({'record_name': 'field_name'}). Defaults to {}. |
+| exclude_fields | Exclude list of field names. Defaults to []. |
+| include_tags | Include additional tags ({'record_name': 'tag_name'}). Defaults to {}. |
+| exclude_tags | Exclude list of tag names. Defaults to []. |
+| extra_fields | Add extra fields if found. Defaults to True. |
+| extra_tags | Add extra tags if found. Defaults to True. |
+| include_stacktrace | Add stacktraces. Defaults to True. |
+| backpop | Default `True`. Add a record for each item in the hierarchy of loggers. |
+| **influxdb_opts | InfluxDB client options |
