@@ -63,7 +63,7 @@ class InfluxHandler(logging.Handler):
 
     def __init__(self,
         database,
-        indexed_keys=None,
+        indexed_keys={'level', 'short_message'},
         debugging_fields=True,
         extra_fields=True,
         localname=None,
@@ -76,15 +76,12 @@ class InfluxHandler(logging.Handler):
         self.extra_fields = extra_fields
         self.localname = localname
         self.measurement = measurement
-        self.indexed_keys = {'level','short_message'}
+        self.indexed_keys = indexed_keys
         self.client = InfluxDBClient(database=database, **client_kwargs)
         self.backpop = backpop
 
         if database not in {x['name'] for x in self.client.get_list_database()}:
             self.client.create_database(database)
-
-        if indexed_keys is not None:
-            self.indexed_keys |= set(indexed_keys)
 
         logging.Handler.__init__(self)
 
@@ -176,7 +173,7 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
     """
 
     def __init__(self,
-        indexed_keys=None,
+        indexed_keys={'level', 'short_message'},
         debugging_fields=True,
         extra_fields=True,
         localname=None,
@@ -192,14 +189,11 @@ class BufferingInfluxHandler(InfluxHandler, BufferingHandler):
         self.localname = localname
         self.measurement = measurement
         self.level_names = level_names
-        self.indexed_keys = {'level','short_message'}
+        self.indexed_keys = indexed_keys
         self.client = InfluxDBClient(**client_kwargs)
         self.flush_interval=flush_interval
         self._thread = None if flush_interval is None else threading.Thread(
             target=self._flush_thread, name="BufferingInfluxHandler", daemon=True)
-
-        if indexed_keys is not None:
-            self.indexed_keys |= set(indexed_keys)
 
         InfluxHandler.__init__(self,
             indexed_keys=None,
